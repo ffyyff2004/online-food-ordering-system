@@ -168,6 +168,7 @@ td small { max-width: 220px; margin-top: 4px; overflow: hidden; color: #999087; 
 .filter-form input, .filter-form select { min-width: 0; flex: 1; padding: 11px 12px; color: #302b27; background: #fff; border: 1px solid #e5dbce; border-radius: 10px; }
 .filter-form select { flex: 0 0 130px; }
 .filter-form .primary { padding: 10px 22px; }
+.food-filter { margin-top: 4px; }
 .notice-form { display: grid; gap: 11px; }
 .notice-form input, .notice-form textarea { width: 100%; padding: 11px 12px; color: #302b27; background: #fff; border: 1px solid #e5dbce; border-radius: 10px; outline: none; }
 .notice-form textarea { resize: vertical; }

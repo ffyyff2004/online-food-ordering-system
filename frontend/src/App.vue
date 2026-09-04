@@ -15,6 +15,9 @@ const cart = ref([])
 const orders = ref([])
 const keyword = ref('')
 const selectedCategory = ref(null)
+const foodPage = ref(1)
+const foodPageSize = 6
+const foodTotal = ref(0)
 const loading = ref(false)
 const message = ref('')
 const showLogin = ref(true)
@@ -43,6 +46,7 @@ const averageRating = computed(() => {
   if (!foodComments.value.length) return '暂无评分'
   return (foodComments.value.reduce((sum, item) => sum + Number(item.rating), 0) / foodComments.value.length).toFixed(1)
 })
+const foodTotalPages = computed(() => Math.max(1, Math.ceil(foodTotal.value / foodPageSize)))
 
 function showMessage(text) {
   message.value = text
@@ -51,9 +55,21 @@ function showMessage(text) {
 
 async function loadFoods() {
   const response = await api.get('/foods', {
-    params: { page: 1, size: 50, categoryId: selectedCategory.value || undefined, keyword: keyword.value || undefined }
+    params: { page: foodPage.value, size: foodPageSize, categoryId: selectedCategory.value || undefined, keyword: keyword.value || undefined }
   })
   foods.value = response.data.data.records
+  foodTotal.value = response.data.data.total
+}
+
+function searchFoods() {
+  foodPage.value = 1
+  loadFoods()
+}
+
+function changeFoodPage(page) {
+  if (page < 1 || page > foodTotalPages.value || page === foodPage.value) return
+  foodPage.value = page
+  loadFoods()
 }
 
 async function loadCategories() {
@@ -364,12 +380,12 @@ onMounted(async () => {
 
     <section class="toolbar">
       <div class="categories">
-        <button :class="{ active: !selectedCategory }" @click="selectedCategory = null; loadFoods()">全部</button>
-        <button v-for="category in categories" :key="category.id" :class="{ active: selectedCategory === category.id }" @click="selectedCategory = category.id; loadFoods()">
+        <button :class="{ active: !selectedCategory }" @click="selectedCategory = null; foodPage = 1; loadFoods()">全部</button>
+        <button v-for="category in categories" :key="category.id" :class="{ active: selectedCategory === category.id }" @click="selectedCategory = category.id; foodPage = 1; loadFoods()">
           {{ category.name }}
         </button>
       </div>
-      <input v-model="keyword" class="search" placeholder="搜索菜品" @keyup.enter="loadFoods" />
+      <input v-model="keyword" class="search" placeholder="搜索菜品" @keyup.enter="searchFoods" />
     </section>
 
     <div class="layout">
@@ -386,6 +402,7 @@ onMounted(async () => {
             </div>
           </article>
         </div>
+        <div v-if="foodTotal > foodPageSize" class="pagination"><button class="page-button" :disabled="foodPage === 1" @click="changeFoodPage(foodPage - 1)">上一页</button><span>第 {{ foodPage }} / {{ foodTotalPages }} 页</span><button class="page-button" :disabled="foodPage === foodTotalPages" @click="changeFoodPage(foodPage + 1)">下一页</button></div>
       </section>
 
       <aside class="side-panel">

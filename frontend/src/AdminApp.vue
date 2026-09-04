@@ -24,6 +24,8 @@ const comments = ref([])
 const stats = ref({ userCount: 0, foodCount: 0, orderCount: 0, pendingOrderCount: 0, todayOrderCount: 0, totalRevenue: 0, todayRevenue: 0, topFoods: [] })
 const logs = ref([])
 const statusFilter = ref('')
+const foodKeyword = ref('')
+const foodCategoryId = ref('')
 const userKeyword = ref('')
 const userStatusFilter = ref('')
 const categoryName = ref('')
@@ -57,7 +59,7 @@ function logout() {
 }
 
 async function loadCategories() { categories.value = (await api.get('/admin/categories')).data.data }
-async function loadFoods() { foods.value = (await api.get('/admin/foods')).data.data }
+async function loadFoods() { foods.value = (await api.get('/admin/foods', { params: { keyword: foodKeyword.value || undefined, categoryId: foodCategoryId.value || undefined } })).data.data }
 async function loadOrders() { orders.value = (await api.get('/admin/orders', { params: { status: statusFilter.value || undefined } })).data.data }
 async function loadFeedbacks() { feedbacks.value = (await api.get('/admin/feedback')).data.data }
 async function loadStats() { stats.value = (await api.get('/admin/stats/summary')).data.data }
@@ -236,7 +238,7 @@ onMounted(() => { if (loggedIn.value) loadAll() })
           </div>
           <button class="primary" @click="addFood">{{ editingFoodId ? '保存菜品' : '添加菜品' }}</button>
         </div>
-        <div class="admin-card"><div class="section-title"><h2>菜品列表</h2><span>{{ foods.length }} 道</span></div><div class="table-wrap"><table><thead><tr><th>菜品</th><th>分类</th><th>售价</th><th>库存</th><th>销量</th><th>状态</th><th>操作</th></tr></thead><tbody><tr v-for="food in foods" :key="food.id"><td><strong>{{ food.name }}</strong><small>{{ food.description }}</small></td><td>{{ food.categoryName }}</td><td>¥{{ food.price }}</td><td>{{ food.stock }}</td><td>{{ food.sales }}</td><td><span :class="['status', food.status ? 'on' : 'off']">{{ food.status ? '上架' : '下架' }}</span></td><td><button class="table-action" @click="editFood(food)">编辑</button><button class="table-action" @click="setStock(food)">调库存</button><button class="table-action" @click="toggleFood(food)">{{ food.status ? '下架' : '上架' }}</button></td></tr></tbody></table></div></div>
+         <div class="admin-card"><div class="section-title"><h2>菜品列表</h2><span>{{ foods.length }} 道</span></div><div class="filter-form food-filter"><input v-model="foodKeyword" placeholder="搜索菜品名称或描述" @keyup.enter="loadFoods" /><select v-model="foodCategoryId" @change="loadFoods"><option value="">全部分类</option><option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option></select><button class="primary" @click="loadFoods">查询</button></div><div class="table-wrap"><table><thead><tr><th>菜品</th><th>分类</th><th>售价</th><th>库存</th><th>销量</th><th>状态</th><th>操作</th></tr></thead><tbody><tr v-for="food in foods" :key="food.id"><td><strong>{{ food.name }}</strong><small>{{ food.description }}</small></td><td>{{ food.categoryName }}</td><td>¥{{ food.price }}</td><td>{{ food.stock }}</td><td>{{ food.sales }}</td><td><span :class="['status', food.status ? 'on' : 'off']">{{ food.status ? '上架' : '下架' }}</span></td><td><button class="table-action" @click="editFood(food)">编辑</button><button class="table-action" @click="setStock(food)">调库存</button><button class="table-action" @click="toggleFood(food)">{{ food.status ? '下架' : '上架' }}</button></td></tr></tbody></table></div></div>
       </section>
 
       <section v-if="tab === 'categories'" class="admin-content">
