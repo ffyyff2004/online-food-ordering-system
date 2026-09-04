@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodordering.mapper.AdminStatsMapper">
+    <select id="summary" resultType="DashboardStats">
+        SELECT
+            (SELECT COUNT(*) FROM `user` WHERE status = 1) AS user_count,
+            (SELECT COUNT(*) FROM food WHERE status = 1) AS food_count,
+            (SELECT COUNT(*) FROM orders) AS order_count,
+            (SELECT COUNT(*) FROM orders WHERE status IN ('PAID', 'PREPARING', 'READY')) AS pending_order_count,
+            (SELECT COUNT(*) FROM orders WHERE created_at &gt;= CURRENT_DATE()) AS today_order_count,
+            COALESCE((SELECT SUM(total_amount) FROM orders WHERE status NOT IN ('PENDING_PAYMENT', 'CANCELLED')), 0) AS total_revenue,
+            COALESCE((SELECT SUM(total_amount) FROM orders WHERE created_at &gt;= CURRENT_DATE() AND status NOT IN ('PENDING_PAYMENT', 'CANCELLED')), 0) AS today_revenue
+    </select>
+    <select id="topFoods" resultType="TopFoodStat">
+        SELECT i.food_id, i.food_name_snapshot AS food_name,
+               SUM(i.quantity) AS quantity, COUNT(DISTINCT i.order_id) AS order_count
+        FROM order_item i JOIN orders o ON o.id = i.order_id
+        WHERE o.status NOT IN ('PENDING_PAYMENT', 'CANCELLED')
+        GROUP BY i.food_id, i.food_name_snapshot
+        ORDER BY quantity DESC, order_count DESC
+        LIMIT 10
+    </select>
+</mapper>

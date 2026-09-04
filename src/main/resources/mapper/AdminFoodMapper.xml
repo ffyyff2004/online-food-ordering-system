@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodordering.mapper.AdminFoodMapper">
+    <select id="findAll" resultType="Food">
+        SELECT f.id, f.category_id, c.name AS category_name, f.name, f.description,
+               f.price, f.original_price, f.image_url, f.stock, f.sales,
+               f.recommended, f.special_offer, f.status, f.created_at, f.updated_at
+        FROM food f LEFT JOIN category c ON c.id = f.category_id
+        WHERE 1 = 1
+        <if test="keyword != null and keyword != ''">AND (f.name LIKE CONCAT('%', #{keyword}, '%') OR f.description LIKE CONCAT('%', #{keyword}, '%'))</if>
+        <if test="categoryId != null">AND f.category_id = #{categoryId}</if>
+        ORDER BY f.id DESC
+    </select>
+    <select id="findById" resultType="Food">
+        SELECT f.id, f.category_id, c.name AS category_name, f.name, f.description,
+               f.price, f.original_price, f.image_url, f.stock, f.sales,
+               f.recommended, f.special_offer, f.status, f.created_at, f.updated_at
+        FROM food f LEFT JOIN category c ON c.id = f.category_id WHERE f.id = #{id}
+    </select>
+    <insert id="insert">
+        INSERT INTO food (category_id, name, description, price, original_price, image_url, stock, recommended, special_offer, status)
+        VALUES (#{request.categoryId}, #{request.name}, #{request.description}, #{request.price}, #{request.originalPrice},
+                #{request.imageUrl}, #{request.stock}, COALESCE(#{request.recommended}, 0),
+                COALESCE(#{request.specialOffer}, 0), COALESCE(#{request.status}, 1))
+    </insert>
+    <update id="update">
+        UPDATE food SET category_id = #{request.categoryId}, name = #{request.name}, description = #{request.description},
+               price = #{request.price}, original_price = #{request.originalPrice}, image_url = #{request.imageUrl},
+               stock = #{request.stock}, recommended = COALESCE(#{request.recommended}, 0),
+               special_offer = COALESCE(#{request.specialOffer}, 0), status = COALESCE(#{request.status}, 1)
+        WHERE id = #{id}
+    </update>
+    <update id="updateStatus">UPDATE food SET status = #{status} WHERE id = #{id}</update>
+    <update id="updateStock">UPDATE food SET stock = #{stock} WHERE id = #{id}</update>
+</mapper>

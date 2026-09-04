@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodordering.mapper.CartMapper">
+    <select id="findByUserId" resultType="CartItem">
+        SELECT c.id, c.user_id, c.food_id, c.quantity,
+               f.name AS food_name, f.price, f.image_url, f.stock, f.status
+        FROM cart c JOIN food f ON f.id = c.food_id
+        WHERE c.user_id = #{userId}
+        ORDER BY c.updated_at DESC, c.id DESC
+    </select>
+    <select id="findByUserAndFood" resultType="CartItem">
+        SELECT c.id, c.user_id, c.food_id, c.quantity,
+               f.name AS food_name, f.price, f.image_url, f.stock, f.status
+        FROM cart c JOIN food f ON f.id = c.food_id
+        WHERE c.user_id = #{userId} AND c.food_id = #{foodId}
+        LIMIT 1
+    </select>
+    <insert id="insert">
+        INSERT INTO cart (user_id, food_id, quantity) VALUES (#{userId}, #{foodId}, #{quantity})
+    </insert>
+    <update id="updateQuantity">
+        UPDATE cart SET quantity = #{quantity}
+        WHERE user_id = #{userId} AND food_id = #{foodId}
+    </update>
+    <delete id="deleteItem">
+        DELETE FROM cart WHERE user_id = #{userId} AND food_id = #{foodId}
+    </delete>
+    <delete id="deleteByUserId">
+        DELETE FROM cart WHERE user_id = #{userId}
+    </delete>
+</mapper>

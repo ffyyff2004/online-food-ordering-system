@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodordering.mapper.FoodMapper">
+    <sql id="baseQuery">
+        FROM food f LEFT JOIN category c ON c.id = f.category_id
+        WHERE f.status = 1
+        <if test="categoryId != null">AND f.category_id = #{categoryId}</if>
+        <if test="keyword != null and keyword != ''">AND (f.name LIKE CONCAT('%', #{keyword}, '%') OR f.description LIKE CONCAT('%', #{keyword}, '%'))</if>
+    </sql>
+    <select id="findPage" resultType="Food">
+        SELECT f.id, f.category_id, c.name AS category_name, f.name, f.description,
+               f.price, f.original_price, f.image_url, f.stock, f.sales,
+               f.recommended, f.special_offer, f.status, f.created_at, f.updated_at
+        <include refid="baseQuery"/>
+        ORDER BY f.recommended DESC, f.sales DESC, f.id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+    <select id="count" resultType="long">
+        SELECT COUNT(*) <include refid="baseQuery"/>
+    </select>
+    <select id="findById" resultType="Food">
+        SELECT f.id, f.category_id, c.name AS category_name, f.name, f.description,
+               f.price, f.original_price, f.image_url, f.stock, f.sales,
+               f.recommended, f.special_offer, f.status, f.created_at, f.updated_at
+        FROM food f LEFT JOIN category c ON c.id = f.category_id
+        WHERE f.id = #{id} AND f.status = 1
+    </select>
+    <select id="findByIdForUpdate" resultType="Food">
+        SELECT f.id, f.category_id, c.name AS category_name, f.name, f.description,
+               f.price, f.original_price, f.image_url, f.stock, f.sales,
+               f.recommended, f.special_offer, f.status, f.created_at, f.updated_at
+        FROM food f LEFT JOIN category c ON c.id = f.category_id
+        WHERE f.id = #{id} AND f.status = 1
+        FOR UPDATE
+    </select>
+    <update id="decreaseStock">
+        UPDATE food
+        SET stock = stock - #{quantity}, sales = sales + #{quantity}
+        WHERE id = #{id} AND status = 1 AND stock &gt;= #{quantity}
+    </update>
+    <update id="restoreStock">
+        UPDATE food
+        SET stock = stock + #{quantity}, sales = GREATEST(sales - #{quantity}, 0)
+        WHERE id = #{id}
+    </update>
+</mapper>

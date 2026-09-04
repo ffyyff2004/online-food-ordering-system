@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodordering.mapper.NoticeMapper">
+    <select id="findEnabled" resultType="Notice">
+        SELECT id, title, content, status, created_at, updated_at
+        FROM notice WHERE status = 1 ORDER BY created_at DESC, id DESC
+    </select>
+    <select id="findAll" resultType="Notice">
+        SELECT id, title, content, status, created_at, updated_at
+        FROM notice ORDER BY created_at DESC, id DESC
+    </select>
+    <select id="findById" resultType="Notice">
+        SELECT id, title, content, status, created_at, updated_at FROM notice WHERE id = #{id}
+    </select>
+    <insert id="insert">
+        INSERT INTO notice (title, content, status)
+        VALUES (#{request.title}, #{request.content}, COALESCE(#{request.status}, 1))
+    </insert>
+    <update id="update">
+        UPDATE notice SET title = #{request.title}, content = #{request.content},
+               status = COALESCE(#{request.status}, 1) WHERE id = #{id}
+    </update>
+    <update id="updateStatus">UPDATE notice SET status = #{status} WHERE id = #{id}</update>
+</mapper>

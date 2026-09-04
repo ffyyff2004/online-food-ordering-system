@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodordering.mapper.AdminCategoryMapper">
+    <select id="findAll" resultType="Category">
+        SELECT id, name, sort_order, status, created_at
+        FROM category ORDER BY sort_order ASC, id ASC
+    </select>
+    <select id="findById" resultType="Category">
+        SELECT id, name, sort_order, status, created_at FROM category WHERE id = #{id}
+    </select>
+    <insert id="insert">
+        INSERT INTO category (name, sort_order, status)
+        VALUES (#{request.name}, COALESCE(#{request.sortOrder}, 0), COALESCE(#{request.status}, 1))
+    </insert>
+    <update id="update">
+        UPDATE category SET name = #{request.name}, sort_order = COALESCE(#{request.sortOrder}, 0),
+               status = COALESCE(#{request.status}, 1) WHERE id = #{id}
+    </update>
+</mapper>

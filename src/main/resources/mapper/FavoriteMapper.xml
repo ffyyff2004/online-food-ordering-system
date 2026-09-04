@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodordering.mapper.FavoriteMapper">
+    <select id="findByUserId" resultType="Favorite">
+        SELECT f.id, f.user_id, f.food_id, d.name AS food_name, d.price, d.image_url, f.created_at
+        FROM favorite f JOIN food d ON d.id = f.food_id
+        WHERE f.user_id = #{userId} ORDER BY f.created_at DESC
+    </select>
+    <select id="count" resultType="int">SELECT COUNT(*) FROM favorite WHERE user_id = #{userId} AND food_id = #{foodId}</select>
+    <insert id="insert">INSERT INTO favorite (user_id, food_id) VALUES (#{userId}, #{foodId})</insert>
+    <delete id="delete">DELETE FROM favorite WHERE user_id = #{userId} AND food_id = #{foodId}</delete>
+</mapper>

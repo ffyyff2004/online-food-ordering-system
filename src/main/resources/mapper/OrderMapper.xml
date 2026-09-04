@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodordering.mapper.OrderMapper">
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO orders (order_no, user_id, total_amount, status, address_snapshot)
+        VALUES (#{orderNo}, #{userId}, #{totalAmount}, #{status}, #{addressSnapshot})
+    </insert>
+    <insert id="insertItem" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO order_item (order_id, food_id, food_name_snapshot, purchase_price, quantity, subtotal)
+        VALUES (#{orderId}, #{foodId}, #{foodNameSnapshot}, #{purchasePrice}, #{quantity}, #{subtotal})
+    </insert>
+    <select id="findByUserId" resultType="Order">
+        SELECT id, order_no, user_id, total_amount, status, address_snapshot,
+               created_at, paid_at, completed_at
+        FROM orders WHERE user_id = #{userId}
+        ORDER BY created_at DESC, id DESC
+    </select>
+    <select id="findByOrderNo" resultType="Order">
+        SELECT id, order_no, user_id, total_amount, status, address_snapshot,
+               created_at, paid_at, completed_at
+        FROM orders WHERE user_id = #{userId} AND order_no = #{orderNo}
+        LIMIT 1
+    </select>
+    <select id="findByOrderNoForUpdate" resultType="Order">
+        SELECT id, order_no, user_id, total_amount, status, address_snapshot,
+               created_at, paid_at, completed_at
+        FROM orders WHERE user_id = #{userId} AND order_no = #{orderNo}
+        LIMIT 1 FOR UPDATE
+    </select>
+    <select id="findItemsByOrderId" resultType="OrderItem">
+        SELECT id, order_id, food_id, food_name_snapshot, purchase_price, quantity, subtotal
+        FROM order_item WHERE order_id = #{orderId} ORDER BY id ASC
+    </select>
+    <update id="pay">
+        UPDATE orders SET status = 'PAID', paid_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId} AND order_no = #{orderNo} AND status = 'PENDING_PAYMENT'
+    </update>
+    <update id="cancel">
+        UPDATE orders SET status = 'CANCELLED'
+        WHERE user_id = #{userId} AND order_no = #{orderNo} AND status = #{currentStatus}
+    </update>
+    <update id="updateTotal">
+        UPDATE orders SET total_amount = #{totalAmount} WHERE id = #{id}
+    </update>
+    <select id="countCompletedItem" resultType="int">
+        SELECT COUNT(*) FROM orders o JOIN order_item i ON i.order_id = o.id
+        WHERE o.id = #{orderId} AND o.user_id = #{userId} AND o.status = 'COMPLETED' AND i.food_id = #{foodId}
+    </select>
+</mapper>

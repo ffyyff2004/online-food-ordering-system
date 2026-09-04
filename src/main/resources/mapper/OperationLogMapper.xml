@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodordering.mapper.OperationLogMapper">
+    <insert id="insert">
+        INSERT INTO operation_log (admin_id, action, method, request_path, detail)
+        VALUES (#{adminId}, #{action}, #{method}, #{requestPath}, #{detail})
+    </insert>
+    <select id="findAll" resultType="OperationLog">
+        SELECT l.id, l.admin_id, a.username AS admin_username, l.action,
+               l.method, l.request_path, l.detail, l.created_at
+        FROM operation_log l LEFT JOIN `admin` a ON a.id = l.admin_id
+        ORDER BY l.created_at DESC, l.id DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

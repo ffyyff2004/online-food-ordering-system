@@ -1,0 +1,13 @@
+target/
+frontend/node_modules/
+frontend/dist/
+.idea/
+*.iml
+.vscode/
+.env
+*.log
+
+# 本地数据库、上传文件和运行输出
+data/
+uploads/
+runtime/
