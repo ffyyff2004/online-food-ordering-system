@@ -25,6 +25,7 @@ const username = ref('')
 const password = ref('')
 const nickname = ref('')
 const address = ref('')
+const selectedAddressId = ref(null)
 const authState = ref(Boolean(localStorage.getItem('food_token')))
 const profile = ref({ nickname: '', phone: '', avatar: '' })
 const addresses = ref([])
@@ -34,6 +35,11 @@ const notices = ref([])
 const selectedFood = ref(null)
 const foodComments = ref([])
 const detailLoading = ref(false)
+const selectedOrder = ref(null)
+const orderDetailLoading = ref(false)
+const submittingOrder = ref(false)
+const payingOrderNo = ref('')
+const cancellingOrderNo = ref('')
 const profileAddress = ref({ receiver: '', phone: '', detail: '', isDefault: 1 })
 const feedbackContent = ref('')
 
@@ -105,6 +111,33 @@ function closeFoodDetail() {
   foodComments.value = []
 }
 
+async function openOrderDetail(orderNo) {
+  orderDetailLoading.value = true
+  selectedOrder.value = null
+  try {
+    const response = await api.get(`/orders/${orderNo}`)
+    if (!response.data.success) throw new Error(response.data.message)
+    selectedOrder.value = response.data.data
+  } catch (error) {
+    showMessage(error.response?.data?.message || error.message || '订单详情加载失败')
+  } finally {
+    orderDetailLoading.value = false
+  }
+}
+
+function closeOrderDetail() {
+  selectedOrder.value = null
+}
+
+function formatAddress(item) {
+  return `${item.receiver} ${item.phone} ${item.detail}`
+}
+
+function selectAddress(item) {
+  selectedAddressId.value = item.id
+  address.value = formatAddress(item)
+}
+
 async function loadCartAndOrders() {
   if (!loggedIn.value) return
   const [cartResponse, orderResponse] = await Promise.all([api.get('/cart'), api.get('/orders')])
@@ -124,7 +157,7 @@ async function loadPersonal() {
   }
   addresses.value = addressResponse.data.data
   const defaultAddress = addresses.value.find((item) => item.isDefault === 1)
-  if (defaultAddress && !address.value) address.value = `${defaultAddress.receiver} ${defaultAddress.phone} ${defaultAddress.detail}`
+  if (defaultAddress && !address.value) selectAddress(defaultAddress)
   favorites.value = favoriteResponse.data.data
   feedbacks.value = feedbackResponse.data.data
 }
@@ -259,10 +292,12 @@ async function removeFromCart(foodId) {
 }
 
 async function createOrder() {
+  if (submittingOrder.value) return
   if (!address.value.trim()) {
     showMessage('请填写收货地址')
     return
   }
+  submittingOrder.value = true
   try {
     const response = await api.post('/orders', { addressSnapshot: address.value })
     if (!response.data.success) throw new Error(response.data.message)
@@ -271,10 +306,14 @@ async function createOrder() {
     showMessage(`订单 ${response.data.data.orderNo} 创建成功`)
   } catch (error) {
     showMessage(error.response?.data?.message || error.message || '下单失败')
+  } finally {
+    submittingOrder.value = false
   }
 }
 
 async function pay(orderNo) {
+  if (payingOrderNo.value) return
+  payingOrderNo.value = orderNo
   try {
     const response = await api.post(`/orders/${orderNo}/pay`)
     if (!response.data.success) throw new Error(response.data.message)
@@ -282,11 +321,15 @@ async function pay(orderNo) {
     showMessage('模拟支付成功')
   } catch (error) {
     showMessage(error.response?.data?.message || error.message || '支付失败')
+  } finally {
+    payingOrderNo.value = ''
   }
 }
 
 async function cancelOrder(orderNo) {
   if (!window.confirm('确定取消这个订单吗？取消后库存会恢复。')) return
+  if (cancellingOrderNo.value) return
+  cancellingOrderNo.value = orderNo
   try {
     const response = await api.post(`/orders/${orderNo}/cancel`)
     if (!response.data.success) throw new Error(response.data.message)
@@ -294,6 +337,8 @@ async function cancelOrder(orderNo) {
     showMessage('订单已取消，库存已恢复')
   } catch (error) {
     showMessage(error.response?.data?.message || error.message || '取消订单失败')
+  } finally {
+    cancellingOrderNo.value = ''
   }
 }
 
@@ -323,6 +368,7 @@ function logout() {
   orders.value = []
   profile.value = { nickname: '', phone: '', avatar: '' }
   addresses.value = []
+  selectedAddressId.value = null
   favorites.value = []
   feedbacks.value = []
   showMessage('已退出登录')
@@ -378,6 +424,29 @@ onMounted(async () => {
       </section>
     </div>
 
+    <div v-if="orderDetailLoading || selectedOrder" class="modal-backdrop" @click.self="closeOrderDetail">
+      <section class="food-detail-modal order-detail-modal">
+        <button class="modal-close" @click="closeOrderDetail">×</button>
+        <div v-if="orderDetailLoading" class="empty">正在加载订单详情…</div>
+        <template v-else>
+          <div class="section-title order-detail-title"><h2>订单详情</h2><span>{{ orderStatusLabels[selectedOrder.status] || selectedOrder.status }}</span></div>
+          <div class="order-detail-summary">
+            <div><span>订单编号</span><strong>{{ selectedOrder.orderNo }}</strong></div>
+            <div><span>下单时间</span><strong>{{ selectedOrder.createdAt || '-' }}</strong></div>
+            <div><span>收货地址</span><strong>{{ selectedOrder.addressSnapshot || '-' }}</strong></div>
+          </div>
+          <div class="sub-title">商品明细</div>
+          <div v-for="item in selectedOrder.items" :key="item.id" class="order-detail-item">
+            <div><strong>{{ item.foodNameSnapshot }}</strong><small>¥{{ item.purchasePrice }} × {{ item.quantity }}</small></div>
+            <strong>¥{{ item.subtotal }}</strong>
+          </div>
+          <div class="order-detail-total"><span>订单合计</span><strong>¥{{ selectedOrder.totalAmount }}</strong></div>
+          <div v-if="selectedOrder.paidAt" class="order-detail-time">支付时间：{{ selectedOrder.paidAt }}</div>
+          <div v-if="selectedOrder.completedAt" class="order-detail-time">完成时间：{{ selectedOrder.completedAt }}</div>
+        </template>
+      </section>
+    </div>
+
     <section class="toolbar">
       <div class="categories">
         <button :class="{ active: !selectedCategory }" @click="selectedCategory = null; foodPage = 1; loadFoods()">全部</button>
@@ -423,8 +492,15 @@ onMounted(async () => {
             <div class="quantity"><button @click="updateCart(item, item.quantity - 1)">−</button><span>{{ item.quantity }}</span><button @click="updateCart(item, item.quantity + 1)">＋</button></div>
           </div>
           <div v-if="cart.length" class="cart-total"><span>合计</span><strong>¥{{ cartTotal }}</strong></div>
-          <input v-if="cart.length" v-model="address" placeholder="收货地址" />
-          <button v-if="cart.length" class="primary full" @click="createOrder">提交订单</button>
+          <div v-if="cart.length && addresses.length" class="checkout-addresses">
+            <div class="sub-title">选择收货地址</div>
+            <button v-for="item in addresses" :key="item.id" type="button" :class="['address-choice', { selected: selectedAddressId === item.id }]" @click="selectAddress(item)">
+              <span><strong>{{ item.receiver }} · {{ item.phone }}</strong><small>{{ item.detail }}</small></span>
+              <em v-if="item.isDefault === 1">默认</em>
+            </button>
+          </div>
+          <input v-if="cart.length" v-model="address" placeholder="收货地址" @input="selectedAddressId = null" />
+          <button v-if="cart.length" class="primary full" :disabled="submittingOrder" @click="createOrder">{{ submittingOrder ? '正在提交…' : '提交订单' }}</button>
         </div>
 
         <div v-if="loggedIn" class="orders-card">
@@ -434,7 +510,7 @@ onMounted(async () => {
             <div class="order-head"><strong>{{ order.orderNo.slice(-8) }}</strong><span>{{ orderStatusLabels[order.status] || order.status }}</span></div>
             <p>{{ order.items?.map(item => `${item.foodNameSnapshot} × ${item.quantity}`).join('、') }}</p>
             <div v-if="order.status !== 'CANCELLED'" class="order-progress"><span v-for="step in orderStatusSteps" :key="step" :class="['progress-step', orderStepClass(order, step)]">{{ orderStatusLabels[step] }}</span></div><p v-else class="cancelled-text">订单已取消，相关库存已恢复</p>
-            <div class="order-foot"><strong>¥{{ order.totalAmount }}</strong><div class="order-actions"><button v-if="order.status === 'PENDING_PAYMENT'" class="pay" @click="pay(order.orderNo)">模拟支付</button><button v-if="['PENDING_PAYMENT', 'PAID', 'PREPARING', 'READY'].includes(order.status)" class="cancel-button" @click="cancelOrder(order.orderNo)">取消订单</button><template v-for="item in order.items" :key="item.foodId"><button v-if="order.status === 'COMPLETED'" class="review-button" @click="reviewItem(order, item)">评价{{ item.foodNameSnapshot }}</button></template></div></div>
+            <div class="order-foot"><strong>¥{{ order.totalAmount }}</strong><div class="order-actions"><button class="detail-button" @click="openOrderDetail(order.orderNo)">查看详情</button><button v-if="order.status === 'PENDING_PAYMENT'" class="pay" :disabled="payingOrderNo === order.orderNo" @click="pay(order.orderNo)">{{ payingOrderNo === order.orderNo ? '支付中…' : '模拟支付' }}</button><button v-if="['PENDING_PAYMENT', 'PAID', 'PREPARING', 'READY'].includes(order.status)" class="cancel-button" :disabled="cancellingOrderNo === order.orderNo" @click="cancelOrder(order.orderNo)">{{ cancellingOrderNo === order.orderNo ? '取消中…' : '取消订单' }}</button><template v-for="item in order.items" :key="item.foodId"><button v-if="order.status === 'COMPLETED'" class="review-button" @click="reviewItem(order, item)">评价{{ item.foodNameSnapshot }}</button></template></div></div>
           </div>
         </div>
 

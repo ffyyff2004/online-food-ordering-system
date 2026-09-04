@@ -32,6 +32,9 @@ const categoryName = ref('')
 const editingFoodId = ref(null)
 const foodForm = ref({ categoryId: '', name: '', description: '', price: '', originalPrice: '', stock: 0, recommended: 0, specialOffer: 0, status: 1 })
 const noticeForm = ref({ id: null, title: '', content: '', status: 1 })
+const selectedOrder = ref(null)
+const orderDetailLoading = ref(false)
+const updatingOrderNo = ref('')
 
 const statusOptions = ['PENDING_PAYMENT', 'PAID', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED']
 const statusLabels = { PENDING_PAYMENT: '待支付', PAID: '已支付', PREPARING: '制作中', READY: '待取餐', COMPLETED: '已完成', CANCELLED: '已取消' }
@@ -132,7 +135,23 @@ async function toggleCategory(category) {
 }
 
 async function updateOrder(order, status) {
-  try { await api.put(`/admin/orders/${order.orderNo}/status?status=${status}`); await loadOrders(); notify('订单状态已更新') } catch (error) { notify(error.response?.data?.message || '订单更新失败') }
+  if (updatingOrderNo.value) return
+  updatingOrderNo.value = order.orderNo
+  try { await api.put(`/admin/orders/${order.orderNo}/status?status=${status}`); await loadOrders(); notify('订单状态已更新') } catch (error) { notify(error.response?.data?.message || '订单更新失败') } finally { updatingOrderNo.value = '' }
+}
+
+async function openOrderDetail(orderNo) {
+  orderDetailLoading.value = true
+  selectedOrder.value = null
+  try {
+    const response = await api.get(`/admin/orders/${orderNo}`)
+    if (!response.data.success) throw new Error(response.data.message)
+    selectedOrder.value = response.data.data
+  } catch (error) { notify(error.response?.data?.message || error.message || '订单详情加载失败') } finally { orderDetailLoading.value = false }
+}
+
+function closeOrderDetail() {
+  selectedOrder.value = null
 }
 
 function orderStatusOptions(order) {
@@ -218,6 +237,30 @@ onMounted(() => { if (loggedIn.value) loadAll() })
     <main class="admin-main">
       <div class="admin-header"><div><p class="eyebrow">MERCHANT CONSOLE</p><h1>{{ pageTitle }}</h1></div><span v-if="message" class="admin-notice">{{ message }}</span></div>
 
+      <div v-if="orderDetailLoading || selectedOrder" class="modal-backdrop" @click.self="closeOrderDetail">
+        <section class="food-detail-modal order-detail-modal">
+          <button class="modal-close" @click="closeOrderDetail">×</button>
+          <div v-if="orderDetailLoading" class="empty">正在加载订单详情…</div>
+          <template v-else>
+            <div class="section-title order-detail-title"><h2>订单详情</h2><span>{{ statusLabels[selectedOrder.status] || selectedOrder.status }}</span></div>
+            <div class="order-detail-summary">
+              <div><span>订单编号</span><strong>{{ selectedOrder.orderNo }}</strong></div>
+              <div><span>用户编号</span><strong>{{ selectedOrder.userId }}</strong></div>
+              <div><span>下单时间</span><strong>{{ selectedOrder.createdAt || '-' }}</strong></div>
+              <div><span>收货地址</span><strong>{{ selectedOrder.addressSnapshot || '-' }}</strong></div>
+            </div>
+            <div class="sub-title">商品明细</div>
+            <div v-for="item in selectedOrder.items" :key="item.id" class="order-detail-item">
+              <div><strong>{{ item.foodNameSnapshot }}</strong><small>¥{{ item.purchasePrice }} × {{ item.quantity }}</small></div>
+              <strong>¥{{ item.subtotal }}</strong>
+            </div>
+            <div class="order-detail-total"><span>订单合计</span><strong>¥{{ selectedOrder.totalAmount }}</strong></div>
+            <div v-if="selectedOrder.paidAt" class="order-detail-time">支付时间：{{ selectedOrder.paidAt }}</div>
+            <div v-if="selectedOrder.completedAt" class="order-detail-time">完成时间：{{ selectedOrder.completedAt }}</div>
+          </template>
+        </section>
+      </div>
+
       <section v-if="tab === 'dashboard'" class="admin-content">
         <div class="stat-grid"><div class="stat-card"><span>累计营业额</span><strong>¥{{ stats.totalRevenue }}</strong><small>已支付及已完成订单</small></div><div class="stat-card"><span>今日营业额</span><strong>¥{{ stats.todayRevenue }}</strong><small>今日订单收入</small></div><div class="stat-card"><span>订单总量</span><strong>{{ stats.orderCount }}</strong><small>待处理 {{ stats.pendingOrderCount }} 笔</small></div><div class="stat-card"><span>注册用户</span><strong>{{ stats.userCount }}</strong><small>上架菜品 {{ stats.foodCount }} 道</small></div></div>
         <div class="admin-card"><div class="section-title"><h2>热销菜品</h2><span>按销售数量排序</span></div><div class="top-food-list"><div v-for="(food, index) in stats.topFoods" :key="food.foodId" class="top-food"><b>{{ index + 1 }}</b><span>{{ food.foodName }}</span><strong>{{ food.quantity }} 份</strong></div><div v-if="!stats.topFoods?.length" class="empty">暂无销售数据</div></div></div>
@@ -246,7 +289,7 @@ onMounted(() => { if (loggedIn.value) loadAll() })
         <div class="admin-card"><div class="section-title"><h2>分类列表</h2><span>{{ categories.length }} 个</span></div><div class="category-list"><div v-for="category in categories" :key="category.id" class="category-row"><strong>{{ category.name }}</strong><span>排序 {{ category.sortOrder }}</span><span :class="['status', category.status ? 'on' : 'off']">{{ category.status ? '启用' : '停用' }}</span><div class="category-actions"><button class="table-action" @click="editCategory(category)">编辑</button><button class="table-action" @click="toggleCategory(category)">{{ category.status ? '停用' : '启用' }}</button></div></div></div></div>
       </section>
 
-      <section v-if="tab === 'orders'" class="admin-content"><div class="admin-card"><div class="section-title"><h2>订单列表</h2><select v-model="statusFilter" @change="loadOrders"><option value="">全部状态</option><option v-for="status in statusOptions" :key="status" :value="status">{{ statusLabels[status] }}</option></select></div><div class="order-table"><div v-for="order in orders" :key="order.orderNo" class="admin-order"><div><strong>{{ order.orderNo }}</strong><p>{{ order.items?.map(item => `${item.foodNameSnapshot} × ${item.quantity}`).join('、') }}</p><small>{{ order.addressSnapshot }}</small></div><div class="order-amount">¥{{ order.totalAmount }}</div><select :value="order.status" @change="updateOrder(order, $event.target.value)"><option v-for="status in orderStatusOptions(order)" :key="status" :value="status">{{ statusLabels[status] }}</option></select></div><div v-if="!orders.length" class="empty">暂无订单</div></div></div></section>
+      <section v-if="tab === 'orders'" class="admin-content"><div class="admin-card"><div class="section-title"><h2>订单列表</h2><select v-model="statusFilter" @change="loadOrders"><option value="">全部状态</option><option v-for="status in statusOptions" :key="status" :value="status">{{ statusLabels[status] }}</option></select></div><div class="order-table"><div v-for="order in orders" :key="order.orderNo" class="admin-order"><div><strong>{{ order.orderNo }}</strong><p>{{ order.items?.map(item => `${item.foodNameSnapshot} × ${item.quantity}`).join('、') }}</p><small>{{ order.addressSnapshot }}</small></div><div class="order-amount">¥{{ order.totalAmount }}</div><div class="admin-order-actions"><button class="table-action" @click="openOrderDetail(order.orderNo)">查看详情</button><select :value="order.status" :disabled="updatingOrderNo === order.orderNo" @change="updateOrder(order, $event.target.value)"><option v-for="status in orderStatusOptions(order)" :key="status" :value="status">{{ statusLabels[status] }}</option></select><small v-if="updatingOrderNo === order.orderNo">更新中…</small></div></div><div v-if="!orders.length" class="empty">暂无订单</div></div></div></section>
       <section v-if="tab === 'feedback'" class="admin-content"><div class="admin-card"><div class="section-title"><h2>用户反馈</h2><span>{{ feedbacks.length }} 条</span></div><div class="feedback-list"><div v-for="feedback in feedbacks" :key="feedback.id" class="admin-feedback"><div><strong>{{ feedback.username }}</strong><p>{{ feedback.content }}</p><small>{{ feedback.reply || '尚未回复' }}</small></div><button class="table-action" @click="replyFeedback(feedback)">{{ feedback.reply ? '修改回复' : '回复' }}</button></div><div v-if="!feedbacks.length" class="empty">暂无反馈</div></div></div></section>
       <section v-if="tab === 'comments'" class="admin-content"><div class="admin-card"><div class="section-title"><h2>用户评价</h2><span>{{ comments.length }} 条</span></div><div class="comment-admin-list"><div v-for="comment in comments" :key="comment.id" class="comment-admin-row"><div><strong>{{ comment.foodName }}</strong><p>{{ comment.content }}</p><small>{{ comment.nickname || comment.username }} · {{ comment.createdAt }}</small></div><div class="rating">{{ '★'.repeat(comment.rating) }}<span>{{ '☆'.repeat(5 - comment.rating) }}</span></div></div><div v-if="!comments.length" class="empty">暂无评价</div></div></div></section>
       <section v-if="tab === 'logs'" class="admin-content"><div class="admin-card"><div class="section-title"><h2>最近操作</h2><span>{{ logs.length }} 条</span></div><div class="log-list"><div v-for="log in logs" :key="log.id" class="log-row"><div><strong>{{ log.action }}</strong><p>{{ log.detail || '无补充说明' }}</p></div><div><small>{{ log.adminUsername || '系统' }}</small><small>{{ log.createdAt }}</small></div></div><div v-if="!logs.length" class="empty">暂无操作日志</div></div></div></section>

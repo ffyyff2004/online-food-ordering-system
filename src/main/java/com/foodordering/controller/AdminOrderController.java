@@ -24,6 +24,11 @@ public class AdminOrderController {
         return ApiResponse.ok(orderService.list(status));
     }
 
+    @GetMapping("/{orderNo}")
+    public ApiResponse<Order> detail(@PathVariable String orderNo) {
+        return ApiResponse.ok(orderService.detail(orderNo));
+    }
+
     @PutMapping("/{orderNo}/status")
     public ApiResponse<Void> updateStatus(@PathVariable String orderNo, @RequestParam String status) {
         orderService.updateStatus(orderNo, status);

@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ExtendWith(MockitoExtension.class)
 class AdminOrderServiceTest {
@@ -54,9 +55,22 @@ class AdminOrderServiceTest {
         verify(adminOrderMapper, never()).updateStatus("ORDER-1", "CANCELLED");
     }
 
+    @Test
+    void loadsOrderDetailWithItems() {
+        Order order = order("PAID");
+        when(adminOrderMapper.findByOrderNo("ORDER-1")).thenReturn(order);
+        when(orderMapper.findItemsByOrderId(order.getId())).thenReturn(java.util.List.of());
+
+        Order result = adminOrderService.detail("ORDER-1");
+
+        assertEquals(order, result);
+        verify(orderMapper).findItemsByOrderId(order.getId());
+    }
+
     private Order order(String status) {
         Order order = new Order();
         order.setOrderNo("ORDER-1");
+        order.setId(1L);
         order.setStatus(status);
         return order;
     }
