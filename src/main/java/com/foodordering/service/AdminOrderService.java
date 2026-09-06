@@ -40,6 +40,13 @@ public class AdminOrderService {
         return orders;
     }
 
+    public Order detail(String orderNo) {
+        Order order = adminOrderMapper.findByOrderNo(orderNo);
+        if (order == null) throw new IllegalArgumentException("订单不存在");
+        order.setItems(orderMapper.findItemsByOrderId(order.getId()));
+        return order;
+    }
+
     @Transactional
     public void updateStatus(String orderNo, String status) {
         if (!STATUSES.contains(status)) throw new IllegalArgumentException("订单状态不合法");
